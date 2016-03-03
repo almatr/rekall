@@ -26,6 +26,24 @@
 
 from rekall.plugins.linux import common
 
+class PSTreeObject(object):
+    def __init__(self, pstree, sort_order):
+        self.pstree = pstree
+        self.sort_order = sort_order
+  
+    def getPSTree(self):
+        return self.pstree
+
+    def __lt__(self, other):
+        if self.pstree[self.sort_order] < other.pstree[self.sort_order]:
+            return True
+        elif self.pstree[self.sort_order] > other.pstree[self.sort_order]:
+            return False
+        else:
+          return self.pstree[0] < other.pstree[0]
+
+    def __eq__(self, other):
+        return (self.pstree[self.sort_order] == other.pstree[self.sort_order])
 
 class LinPSTree(common.LinuxPlugin):
     """Shows the parent/child relationship between processes.
@@ -35,21 +53,35 @@ class LinPSTree(common.LinuxPlugin):
     """
     __name = "pstree"
 
+    @classmethod
+    def args(cls, parser):
+        """Declare the command line args we accept."""
+        parser.add_argument(
+            "sort_order", default=0, help="Sort order.")
+        super(LinPSTree, cls).args(parser)
+
+    def __init__(self, sort_order=0, **kwargs):
+        super(LinPSTree, self).__init__(**kwargs)
+        self.sort_order = sort_order
+
     def render(self, renderer):
         renderer.table_header([("Pid", "pid", ">6"),
-                               ("Ppid", "ppid", ">6"),
-                               ("Uid", "uid", ">6"),
-                               ("", "depth", "0"),
-                               ("Name", "name", "<30"),
-                               ])
+			       ("Ppid", "ppid", ">6"),
+			       ("Uid", "uid", ">6"),
+			       ("", "depth", "0"),
+			       ("Name", "name", "<30"),])
 
         root_task = self.profile.get_constant_object(
             "init_task", target="task_struct")
 
+        sorted_list = []
         for task, level in self.recurse_task(root_task, 0):
-            renderer.table_row(
-                task.pid, task.parent.pid, task.uid,
-                "." * level, task.commandline)
+            sorted_list.append(PSTreeObject(
+                [task.pid, task.parent.pid, task.uid, "." * level, task.commandline], self.sort_order))
+
+        sorted_list.sort()
+        for PSTree in sorted_list:
+            renderer.table_row(*PSTree.getPSTree())
 
     def recurse_task(self, task, level):
         """Yields all the children of this task."""
