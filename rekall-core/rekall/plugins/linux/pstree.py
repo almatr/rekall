@@ -27,14 +27,28 @@
 from rekall.plugins.linux import common
 
 class PSTreeObject(object):
+    """
+    One object of class PSTreeObject stores pstree list and sort order.
+    """
     def __init__(self, pstree, sort_order):
+        """
+        instance method as the constructor
+        """
         self.pstree = pstree
         self.sort_order = sort_order
   
     def getPSTree(self):
+        """
+        returns pstree list
+        """
         return self.pstree
 
     def __lt__(self, other):
+        """
+        Returns True if pstree header < other.pstree header, False otherwise. If
+        they are equal, then method checks the first pstree header to
+        determine which object is less than the other
+        """
         if self.pstree[self.sort_order] < other.pstree[self.sort_order]:
             return True
         elif self.pstree[self.sort_order] > other.pstree[self.sort_order]:
@@ -43,6 +57,10 @@ class PSTreeObject(object):
           return self.pstree[0] < other.pstree[0]
 
     def __eq__(self, other):
+        """
+        This method should return True when two objects are same. It returns
+        false otherwise.
+        """
         return (self.pstree[self.sort_order] == other.pstree[self.sort_order])
 
 class LinPSTree(common.LinuxPlugin):
@@ -66,10 +84,11 @@ class LinPSTree(common.LinuxPlugin):
 
     def render(self, renderer):
         renderer.table_header([("Pid", "pid", ">6"),
-			       ("Ppid", "ppid", ">6"),
-			       ("Uid", "uid", ">6"),
-			       ("", "depth", "0"),
-			       ("Name", "name", "<30"),])
+		                       ("Ppid", "ppid", ">6"),
+			                   ("Uid", "uid", ">6"),
+			                   ("", "depth", "0"),
+			                   ("Name", "name", "<30"),
+                              ])
 
         root_task = self.profile.get_constant_object(
             "init_task", target="task_struct")
@@ -77,7 +96,8 @@ class LinPSTree(common.LinuxPlugin):
         sorted_list = []
         for task, level in self.recurse_task(root_task, 0):
             sorted_list.append(PSTreeObject(
-                [task.pid, task.parent.pid, task.uid, "." * level, task.commandline], self.sort_order))
+                [task.pid, task.parent.pid, task.uid, "." * level,
+                 task.commandline], self.sort_order))
 
         sorted_list.sort()
         for PSTree in sorted_list:
