@@ -35,13 +35,21 @@ class PSTreeObject(object):
         instance method as the constructor
         """
         self.pstree = pstree
-        self.sort_order = sort_order
+        self.sort_order = int(sort_order)
   
-    def getPSTree(self):
+    def getPSTree(self, search):
         """
         returns pstree list
+        if search argument provided then it will search using the search argument
         """
-        return self.pstree
+        if search:
+            for col in self.pstree:
+              if col:
+	          col_value = col.__str__()
+	          if col_value.find(search) != -1:
+	              return self.pstree
+        else:
+            return self.pstree
 
     def __lt__(self, other):
         """
@@ -63,6 +71,7 @@ class PSTreeObject(object):
         """
         return (self.pstree[self.sort_order] == other.pstree[self.sort_order])
 
+
 class LinPSTree(common.LinuxPlugin):
     """Shows the parent/child relationship between processes.
 
@@ -74,20 +83,23 @@ class LinPSTree(common.LinuxPlugin):
     @classmethod
     def args(cls, parser):
         """Declare the command line args we accept."""
-        parser.add_argument(
-            "sort_order", default=0, help="Sort order.")
+        parser.add_argument("--sort_order", default=0,
+                            help="Sort order.")
+        parser.add_argument("--search", default=None,
+                            help="Search.")
         super(LinPSTree, cls).args(parser)
 
-    def __init__(self, sort_order=0, **kwargs):
+    def __init__(self, sort_order=0, search=None, **kwargs):
         super(LinPSTree, self).__init__(**kwargs)
         self.sort_order = sort_order
+        self.search = search
 
     def render(self, renderer):
         renderer.table_header([("Pid", "pid", ">6"),
-		                       ("Ppid", "ppid", ">6"),
-			                   ("Uid", "uid", ">6"),
-			                   ("", "depth", "0"),
-			                   ("Name", "name", "<30"),
+	                       ("Ppid", "ppid", ">6"),
+	                       ("Uid", "uid", ">6"),
+	                       ("", "depth", "0"),
+	                       ("Name", "name", "<30"),
                               ])
 
         root_task = self.profile.get_constant_object(
@@ -101,7 +113,9 @@ class LinPSTree(common.LinuxPlugin):
 
         sorted_list.sort()
         for PSTree in sorted_list:
-            renderer.table_row(*PSTree.getPSTree())
+            result = PSTree.getPSTree(self.search)
+            if result:
+                renderer.table_row(*result)
 
     def recurse_task(self, task, level):
         """Yields all the children of this task."""
@@ -110,4 +124,3 @@ class LinPSTree(common.LinuxPlugin):
         for child in task.children.list_of_type("task_struct", "sibling"):
             for subtask, sublevel in self.recurse_task(child, level + 1):
                 yield subtask, sublevel
-
